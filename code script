@@ -1,0 +1,461 @@
+classdef NewMarkLinearSDOFBaseShear < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                   matlab.ui.Figure
+        TabGroup                   matlab.ui.container.TabGroup
+        BaseShearDeterminationTab  matlab.ui.container.Tab
+        Panel                      matlab.ui.container.Panel
+        TankTypeDropDownLabel      matlab.ui.control.Label
+        TankTypeDropDown           matlab.ui.control.DropDown
+        RecordNameDropDownLabel    matlab.ui.control.Label
+        RecordNameDropDown         matlab.ui.control.DropDown
+        RecordScalegLabel          matlab.ui.control.Label
+        RecordScalegDropDown       matlab.ui.control.DropDown
+        RunProcessingButton        matlab.ui.control.Button
+        ResultsShowTextArea        matlab.ui.control.TextArea
+        Panel_2                    matlab.ui.container.Panel
+        UIAxes                     matlab.ui.control.UIAxes
+        UITable                    matlab.ui.control.Table
+        SaveTableDataButton        matlab.ui.control.Button
+        UIAxes_2                   matlab.ui.control.UIAxes
+        UIAxes_3                   matlab.ui.control.UIAxes
+        UIAxes_4                   matlab.ui.control.UIAxes
+        UIAxes_5                   matlab.ui.control.UIAxes
+        UIAxes_7                   matlab.ui.control.UIAxes
+        UIAxes_8                   matlab.ui.control.UIAxes
+        UIAxes_9                   matlab.ui.control.UIAxes
+        FragilityResultsTab        matlab.ui.container.Tab
+    end
+
+    
+    methods (Access = private)
+        
+        function [u,baseShear] = NewMarkSDOFLieanrBaseShear(app,acc,m,k,zet,dt)
+            g=386;                      % The Acceleration of Gravity in the acceleration unit (e.g. in/s^2)
+%             fine Earthquake Motion
+            ft=acc;                 
+            
+            NM=2;                       % Select Newmark Method, 1=Average  2=Linear
+            
+            %% Calculation
+            c=2*m*(k/m)^.5*zet/100;
+            
+            if NM==1
+                Gamma=0.5;
+                Beta=0.25;
+            else
+                Gamma=0.5;
+                Beta=1/6;
+            end
+            
+            a1=m/(Beta*dt^2)+Gamma*c/(Beta*dt);
+            a2=m/(Beta*dt)+(Gamma/Beta-1)*c;
+            a3=m*(1/2/Beta-1)+dt*(Gamma/2/Beta-1)*c;
+            K=k+a1;
+            
+            u=zeros(length(ft),1);
+            v=zeros(length(ft),1);
+            ac=zeros(length(ft),1);
+            ft(end+1)=0;
+            
+            for i=1:length(u)-1
+                u(1,1)=0;                      %initial conditions
+                v(1,1)=0;
+                ac(1,1)=0;
+                p=-g*m*ft(i+1)+a1*u(i,1)+a2*v(i,1)+a3*ac(i,1);
+                u(i+1,1)=p/K;
+                v(i+1,1)=Gamma/(Beta*dt)*(u(i+1,1)-u(i,1))+(1-Gamma/Beta)*v(i,1)+dt*(1-Gamma/2/Beta)*ac(i,1);
+                ac(i+1,1)=1/Beta/dt^2*(u(i+1,1)-u(i,1))-1/Beta/dt*v(i,1)-(1/2/Beta-1)*ac(i,1);
+            end
+            u = u *25.4
+            baseShear = k.*u;
+            ft(end)=[];
+            
+        end
+    end
+   
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: RunProcessingButton
+        function RunProcessingButtonPushed(app, event)
+            global t
+            global TotalBase
+            load('FEData.mat');
+            
+            value1 = app.TankTypeDropDown.Value;
+            value2 = app.RecordNameDropDown.Value;
+            value3 = app.RecordScalegDropDown.Value;
+            
+            switch value1
+                
+                case 'Type 1'
+                    massc = 1121;
+                    Stiffc = 1375;
+                    
+                    massI = 753;
+                    StiffI = 19821634;
+                    
+                case 'Type 2'
+                    massc = 1384;
+                    Stiffc = 2322;
+                    
+                    massI = 2154;
+                    StiffI = 27083907;
+                    
+                case 'Type 3 '
+                    massc = 144;
+                    Stiffc = 519;
+                    
+                    massI =857;
+                    StiffI = 2159453;
+            end
+            
+            
+            
+            switch value2
+                
+                case 'Imperial EQ'
+                    dt = 0.02;
+                    Name = 'Imperial';
+                case 'Loma EQ'
+                    dt = 0.02;
+                    Name = 'Loma';
+                case 'Northridge EQ'
+                    dt = 0.01;
+                    Name = 'NorthRidge';
+                case 'Manjil EQ'
+                    dt = 0.02;
+                    Name = 'Manjil';
+                case 'Landers EQ'
+                    dt = 0.02;
+                    Name = 'Landers';
+                case 'kobe EQ'
+                    dt = 0.01;
+                    Name = 'Kobe';
+                case 'Kokaeli EQ'
+                    dt = 0.02;
+                    Name = 'Kocaeli';
+                case 'Tabas EQ'
+                    dt = 0.02;
+                    Name = 'Tabas';
+                    
+            end
+            
+            
+            
+            switch value3
+                
+                case '0.1'
+                    mid = 'G1(:,1)';
+                    
+                case '0.2'
+                    mid = 'G2(:,1)';
+                case '0.3'
+                    mid = 'G3(:,1)';
+                case '0.4'
+                    mid = 'G4(:,1)';
+                case '0.5'
+                    mid = 'G5(:,1)';
+                case '0.6'
+                    mid = 'G6(:,1)';
+                case '0.7'
+                    mid = 'G7(:,1)';
+                case '0.8'
+                    mid = 'G8(:,1)';
+                case '0.9'
+                    mid = 'G9(:,1)';
+                case '1'
+                    mid = 'G10(:,1)';
+                    
+            end
+            
+            Name0 = 'FEData.';
+            
+            midd = 'EQData';
+            
+            EqName = [Name0,Name,midd,mid];
+            EqName =eval(EqName);
+            
+            
+            
+            
+            
+            [uConvective,baseShearConvective] = NewMarkSDOFLieanrBaseShear(app,EqName,massc,Stiffc,0.5,dt);
+            [uImpulsive,baseShearImpulsive] = NewMarkSDOFLieanrBaseShear(app,EqName,massI,StiffI,5,dt);
+            
+            TotalBase = baseShearImpulsive+baseShearConvective;
+            
+            
+            t = 0 :dt:size(TotalBase,1)*dt;
+            t = t+1;
+            t(end)=[];
+            
+            
+            plot(app.UIAxes,t,uConvective,'b','LineWidth',1.5);
+            plot(app.UIAxes_8,t,uImpulsive,'b','LineWidth',1.5);
+            plot(app.UIAxes_2,t,baseShearConvective,'b','LineWidth',1.5);
+            plot(app.UIAxes_3,t,baseShearImpulsive,'b','LineWidth',1.5);
+            plot(app.UIAxes_4,uConvective,baseShearConvective,'b','LineWidth',1.5);
+            plot(app.UIAxes_7,uImpulsive,baseShearImpulsive,'b','LineWidth',1.5);
+            plot(app.UIAxes_5,t,TotalBase,'r','LineWidth',1.5);
+            plot(app.UIAxes_9,t,EqName,'k','LineWidth',1.5);
+             t = t';
+            app.UITable.Data = [t TotalBase];
+            
+          
+            
+            t1 = 'Results    ------------------------------';
+            t2 = 'Tank''s Type 1 Informations : -----------------------';
+            t3 = 'thickness = 30 cm';
+            t4 = 'Diameter = 20 m ';
+            t5 = 'Hight = 5 m ';
+            t6 = 'Mass Convective = 1121 (N.s^2/mm)';
+            t6 = 'Mass Impulsive = 753 (N.s^2/mm)';
+            t6 = 'Stiffness Convective = 1375 (N/mm)';
+            t6 = 'Stiffness Impulsive = 19821634 (N/mm)';
+            
+            t7 = 'Tank''s Type 2 Informations : -----------------------';
+            t8 = 'thickness = 40 cm';
+            t9 = 'Diameter = 20 m ';
+            t10 = 'Hight = 10 m ';
+            t11 = 'Mass Convective = 1384 (N.s^2/mm)';
+            t12 = 'Mass Impulsive = 2154 (N.s^2/mm)';
+            t13 = 'Stiffness Convective = 2322 (N/mm)';
+            t14 = 'Stiffness Impulsive = 27083907 (N/mm)';
+            
+            t15 = 'Tank''s Type 3 Informations : -----------------------';
+            t16 = 'thickness = 40 cm';
+            t17 = 'Diameter = 10 m ';
+            t18 = 'Hight = 10 m ';
+            t19 = 'Mass Convective = 144 (N.s^2/mm)';
+            t20 = 'Mass Impulsive = 519 (N.s^2/mm)';
+            t21 = 'Stiffness Convective = 857 (N/mm)';
+            t22 = 'Stiffness Impulsive = 2159453 (N/mm)';
+            
+            
+            app.ResultsShowTextArea.Value = cellstr(strvcat(t1,t2,t3,t4,t5,t6,' ',t7,t8,t9,t10,t11,t12,t13,t14,' ',t15,t16,t17,t18,t19,t20,t21,t22));
+            
+            
+
+        
+        end
+
+        % Value changed function: TankTypeDropDown
+        function TankTypeDropDownValueChanged(app, event)
+            value = app.TankTypeDropDown.Value;
+            
+        end
+
+        % Button pushed function: SaveTableDataButton
+        function SaveTableDataButtonPushed(app, event)
+            global t
+            global TotalBase
+            [FileName , Dir ] = uiputfile({'*.txt','BaseShearTextFiles'},'Directory Selection','BaseShear.txt');
+            File = fullfile(Dir,FileName);
+            a = [t  TotalBase];
+            save(File,'a','-ascii')
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 1113 766];
+            app.UIFigure.Name = 'UI Figure';
+
+            % Create TabGroup
+            app.TabGroup = uitabgroup(app.UIFigure);
+            app.TabGroup.Position = [1 0 1118 767];
+
+            % Create BaseShearDeterminationTab
+            app.BaseShearDeterminationTab = uitab(app.TabGroup);
+            app.BaseShearDeterminationTab.Title = 'BaseShearDetermination';
+
+            % Create Panel
+            app.Panel = uipanel(app.BaseShearDeterminationTab);
+            app.Panel.Position = [1 1 260 741];
+
+            % Create TankTypeDropDownLabel
+            app.TankTypeDropDownLabel = uilabel(app.Panel);
+            app.TankTypeDropDownLabel.Position = [11 704 68 22];
+            app.TankTypeDropDownLabel.Text = 'Tank Type';
+
+            % Create TankTypeDropDown
+            app.TankTypeDropDown = uidropdown(app.Panel);
+            app.TankTypeDropDown.Items = {'Type 1', 'Type 2', 'Type 3 '};
+            app.TankTypeDropDown.ValueChangedFcn = createCallbackFcn(app, @TankTypeDropDownValueChanged, true);
+            app.TankTypeDropDown.Position = [113 704 133 22];
+            app.TankTypeDropDown.Value = 'Type 1';
+
+            % Create RecordNameDropDownLabel
+            app.RecordNameDropDownLabel = uilabel(app.Panel);
+            app.RecordNameDropDownLabel.Position = [11 667 80 22];
+            app.RecordNameDropDownLabel.Text = 'Record Name';
+
+            % Create RecordNameDropDown
+            app.RecordNameDropDown = uidropdown(app.Panel);
+            app.RecordNameDropDown.Items = {'Imperial EQ', 'Loma EQ', 'Northridge EQ', 'Manjil EQ', 'Landers EQ', 'kobe EQ', 'Kocaeli EQ', 'Tabas EQ'};
+            app.RecordNameDropDown.Position = [113 667 133 22];
+            app.RecordNameDropDown.Value = 'Imperial EQ';
+
+            % Create RecordScalegLabel
+            app.RecordScalegLabel = uilabel(app.Panel);
+            app.RecordScalegLabel.Position = [11 629 96 22];
+            app.RecordScalegLabel.Text = 'Record Scale (g)';
+
+            % Create RecordScalegDropDown
+            app.RecordScalegDropDown = uidropdown(app.Panel);
+            app.RecordScalegDropDown.Items = {'0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1'};
+            app.RecordScalegDropDown.Position = [113 629 133 22];
+            app.RecordScalegDropDown.Value = '0.1';
+
+            % Create RunProcessingButton
+            app.RunProcessingButton = uibutton(app.Panel, 'push');
+            app.RunProcessingButton.ButtonPushedFcn = createCallbackFcn(app, @RunProcessingButtonPushed, true);
+            app.RunProcessingButton.Position = [11 557 235 22];
+            app.RunProcessingButton.Text = 'Run Processing';
+
+            % Create ResultsShowTextArea
+            app.ResultsShowTextArea = uitextarea(app.Panel);
+            app.ResultsShowTextArea.Position = [11 11 235 530];
+
+            % Create Panel_2
+            app.Panel_2 = uipanel(app.BaseShearDeterminationTab);
+            app.Panel_2.Position = [260 1 857 741];
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.Panel_2);
+            title(app.UIAxes, 'Displacment Convective')
+            xlabel(app.UIAxes, 'Time (s)')
+            ylabel(app.UIAxes, 'Dispalcment (mm)')
+            app.UIAxes.Box = 'on';
+            app.UIAxes.Position = [1 595 319 146];
+
+            % Create UITable
+            app.UITable = uitable(app.Panel_2);
+            app.UITable.ColumnName = {'Time (S)'; 'Total BaseShear  (kN)'};
+            app.UITable.RowName = {};
+            app.UITable.Position = [629 155 211 563];
+
+            % Create SaveTableDataButton
+            app.SaveTableDataButton = uibutton(app.Panel_2, 'push');
+            app.SaveTableDataButton.ButtonPushedFcn = createCallbackFcn(app, @SaveTableDataButtonPushed, true);
+            app.SaveTableDataButton.Icon = 'iconfinder_138_floppy_diskette_save_4308517.png';
+            app.SaveTableDataButton.BackgroundColor = [0.902 0.902 0.902];
+            app.SaveTableDataButton.FontName = 'Times New Roman';
+            app.SaveTableDataButton.FontSize = 15;
+            app.SaveTableDataButton.FontWeight = 'bold';
+            app.SaveTableDataButton.FontAngle = 'italic';
+            app.SaveTableDataButton.Position = [629 48 211 92];
+            app.SaveTableDataButton.Text = 'Save Table Data';
+
+            % Create UIAxes_2
+            app.UIAxes_2 = uiaxes(app.Panel_2);
+            title(app.UIAxes_2, 'Base Shear Convective')
+            xlabel(app.UIAxes_2, 'Time (s)')
+            ylabel(app.UIAxes_2, 'Base Shear (kN)')
+            app.UIAxes_2.Box = 'on';
+            app.UIAxes_2.Position = [1 450 427 146];
+
+            % Create UIAxes_3
+            app.UIAxes_3 = uiaxes(app.Panel_2);
+            title(app.UIAxes_3, 'Base Shear Impulsive')
+            xlabel(app.UIAxes_3, 'Time (s)')
+            ylabel(app.UIAxes_3, 'Base Shear (kN)')
+            app.UIAxes_3.Box = 'on';
+            app.UIAxes_3.Position = [1 305 427 146];
+
+            % Create UIAxes_4
+            app.UIAxes_4 = uiaxes(app.Panel_2);
+            title(app.UIAxes_4, '')
+            xlabel(app.UIAxes_4, 'Diplacment (mm)')
+            ylabel(app.UIAxes_4, 'Force (N)')
+            app.UIAxes_4.Box = 'on';
+            app.UIAxes_4.XGrid = 'on';
+            app.UIAxes_4.YGrid = 'on';
+            app.UIAxes_4.Position = [435 450 184 129];
+
+            % Create UIAxes_5
+            app.UIAxes_5 = uiaxes(app.Panel_2);
+            title(app.UIAxes_5, 'Total Base Shear')
+            xlabel(app.UIAxes_5, 'Time (s)')
+            ylabel(app.UIAxes_5, 'Base Shear (kN)')
+            app.UIAxes_5.Box = 'on';
+            app.UIAxes_5.XGrid = 'on';
+            app.UIAxes_5.XMinorGrid = 'on';
+            app.UIAxes_5.YGrid = 'on';
+            app.UIAxes_5.YMinorGrid = 'on';
+            app.UIAxes_5.Position = [0 11 619 152];
+
+            % Create UIAxes_7
+            app.UIAxes_7 = uiaxes(app.Panel_2);
+            title(app.UIAxes_7, '')
+            xlabel(app.UIAxes_7, 'Displacment (mm)')
+            ylabel(app.UIAxes_7, 'Force (N)')
+            app.UIAxes_7.Box = 'on';
+            app.UIAxes_7.XGrid = 'on';
+            app.UIAxes_7.YGrid = 'on';
+            app.UIAxes_7.Position = [435 305 184 127];
+
+            % Create UIAxes_8
+            app.UIAxes_8 = uiaxes(app.Panel_2);
+            title(app.UIAxes_8, 'Displacment Impulsive')
+            xlabel(app.UIAxes_8, 'Time (s)')
+            ylabel(app.UIAxes_8, 'Dispalcment (mm)')
+            app.UIAxes_8.Box = 'on';
+            app.UIAxes_8.Position = [319 595 300 146];
+
+            % Create UIAxes_9
+            app.UIAxes_9 = uiaxes(app.Panel_2);
+            title(app.UIAxes_9, '')
+            xlabel(app.UIAxes_9, 'Time (s)')
+            ylabel(app.UIAxes_9, 'Aceeleration (g)')
+            app.UIAxes_9.Box = 'on';
+            app.UIAxes_9.XGrid = 'on';
+            app.UIAxes_9.XMinorGrid = 'on';
+            app.UIAxes_9.YGrid = 'on';
+            app.UIAxes_9.YMinorGrid = 'on';
+            app.UIAxes_9.Position = [1 162 618 144];
+
+            % Create FragilityResultsTab
+            app.FragilityResultsTab = uitab(app.TabGroup);
+            app.FragilityResultsTab.Title = 'Fragility Results';
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = NewMarkLinearSDOFBaseShear
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
